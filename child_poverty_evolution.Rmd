@@ -1,0 +1,145 @@
+---
+output:
+    html_document:
+      toc: TRUE
+      toc_float: TRUE
+      max-width: 100%
+      
+---
+```{r, echo=FALSE, include=F}
+library("readr")
+library("readxl")
+library("tidyverse")
+library("dplyr")
+library("treemapify")
+library("knitr")
+library("reactable")
+library("gganimate")
+library("gifski")
+library("lubridate")
+library("lubridate")
+library("ggplot2")
+library("gifski")
+library("gapminder")
+library("gganimate")
+
+df_nn<-read_csv2('O:/INFANCIA/BECARIOS/NICOLAS/EDSA 2021/BASES 2021/BASE_INFANCIA_21.3.2022.csv')
+
+
+df_p1<-select(df_nn, ENCUESTA, ID, COMPONENTE, LOCALIDAD, region, AGL_URBAN_4, PON_SIN_ELEVAR,NES_PUNTUAL, EST_Clase4, pobreza_ODSA_SN_max)
+
+pob_year_region<-group_by(df_p1, ENCUESTA, region)%>%summarise(pobreza=weighted.mean(pobreza_ODSA_SN_max, PON_SIN_ELEVAR))
+
+pob_year<-group_by(df_p1, ENCUESTA)%>%summarise(pobreza=weighted.mean(pobreza_ODSA_SN_max, PON_SIN_ELEVAR))
+
+pob_year_total<-bind_rows(pob_year_region,pob_year)
+
+pob_year_total<-pob_year_total%>%mutate(pobreza_100=pobreza*100)
+
+pob_year_total<-pob_year_total%>%mutate(region=case_when(
+          region==1~"AMBA",
+          region==2~"CENTRO",
+          region==3~"NOA",
+          region==4~ "CUYO",
+          region==5 ~ "NEA",
+          region==6 ~ "PATAGONIA",
+          is.na(region)~"TOTAL"))
+
+pob_year_total<-pob_year_total%>%mutate(year=case_when(
+                ENCUESTA==16~2017,
+                ENCUESTA==17~2018,
+                ENCUESTA==18~2019,
+                ENCUESTA==19~2020,
+                ENCUESTA==20~2021))
+
+graf_pob_ev<-pob_year_total%>% ggplot(aes(x=year, y=pobreza_100, color=region))+
+  geom_line(size = 2) +
+  geom_point (size = 4)+
+  labs(title = "Evolución de la pobreza infantil por región ",
+       x = "Año",
+       y = "Pobreza infantil")+
+  theme_minimal()+
+  transition_reveal(year)
+```
+## Evolución de la Pobreza Infantil 
+
+```{r, echo=FALSE}
+graf_pob_ev
+```
+
+## Tabla de pobreza por región 
+
+```{r, echo=F, include=F}
+
+df_nn<-read_csv2('O:/INFANCIA/BECARIOS/NICOLAS/EDSA 2021/BASES 2021/BASE_INFANCIA_21.3.2022.csv')
+
+
+df_p1<-select(df_nn, ENCUESTA, ID, COMPONENTE, LOCALIDAD, region, AGL_URBAN_4, PON_SIN_ELEVAR,NES_PUNTUAL, EST_Clase4, pobreza_ODSA_SN_max)
+
+
+df_p1<-rename(df_p1, year="ENCUESTA", id='ID', localidad="LOCALIDAD", aglomerado="AGL_URBAN_4")
+
+```
+
+```{r, echo=F, include=F, warning=F, message=F}
+
+pob_year_aglom_reg<-group_by(df_p1, year,region, aglomerado)%>%summarise(pobreza=weighted.mean(pobreza_ODSA_SN_max, PON_SIN_ELEVAR))
+
+pob_year<-group_by(df_p1, year)%>%summarise(pobreza=weighted.mean(pobreza_ODSA_SN_max, PON_SIN_ELEVAR))
+
+pob_year_aglom_reg_ok<-bind_rows(pob_year_aglom_reg,pob_year)
+
+pob_year_aglom_reg_ok<-pob_year_aglom_reg_ok%>%mutate(pobreza_100=pobreza*100)
+
+
+# Renombro los años 
+
+pob_year_aglom_reg_ok<-pob_year_aglom_reg_ok%>%mutate(year=case_when(
+  year==16~2017,
+  year==17~2018,
+  year==18~2019,
+  year==19~2020,
+  year==20~2021))
+
+
+# Renombro los aglomerados
+
+pob_year_aglom_reg_ok<-pob_year_aglom_reg_ok%>%mutate(aglomerado=case_when(
+  aglomerado==1~"CABA",
+  aglomerado==2~"Conurbano Bonaerense",
+  aglomerado==3~"Otras grandes áreas Metropolitanas",
+  aglomerado==4~"Resto urbano del interior",
+  is.na(aglomerado)~"TOTAL"))
+
+
+pob_year_aglom_reg_ok<-pob_year_aglom_reg_ok%>%mutate(region=case_when(
+  region==1~"AMBA",
+  region==2~"CENTRO",
+  region==3~"NOA",
+  region==4~ "CUYO",
+  region==5 ~ "NEA",
+  region==6 ~ "PATAGONIA",
+  is.na(region)~"TOTAL"))
+
+tabla_pobreza_1<-select(pob_year_aglom_reg_ok, year, region, aglomerado, pobreza_100)
+tabla_pobreza_1<-rename(tabla_pobreza_1, Año='year',
+                        Region='region', Aglomerado='aglomerado',
+                        Pobreza='pobreza_100')
+tabla_pobreza_1<-tabla_pobreza_1%>%mutate(Pobreza=round(Pobreza,2))
+
+```
+
+
+```{r, echo=F}
+reactable(tabla_pobreza_1, defaultSorted = c("Region", "Pobreza"),
+          groupBy = c('Año', "Region"), filterable = TRUE, defaultPageSize = 55, 
+          highlight = TRUE)
+```
+
+
+```{r, echo=F}
+reactable(tabla_pobreza_1, defaultSorted = c("Region", "Pobreza"),
+          groupBy = c("Region", "Año"), filterable = TRUE, defaultPageSize = 55, 
+          highlight = TRUE)
+```
+
